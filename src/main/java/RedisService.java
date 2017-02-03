@@ -1,7 +1,11 @@
+import model.FileGetMetadata;
+import model.FileSetMetadata;
 import model.UrlMetadata;
 import redis.clients.jedis.Jedis;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -14,40 +18,73 @@ public class RedisService implements KeyValueService {
     public RedisService() {
         jedis = new Jedis("localhost", 6379);
         System.out.println("Jedis started");
+        jedis.flushDB();
     }
 
     @Override
     public UrlMetadata accessUrl(String url) {
-        Map<String, String> metadataMap = jedis.hgetAll(url);
-        UrlMetadata urlMetadata = new UrlMetadata();
-        // if is empty, then exists will be false by default
-        if (!metadataMap.isEmpty()) {
-            urlMetadata.setExists(true);
-            urlMetadata.setAccessCount(Integer.parseInt(metadataMap.get("ac")));
-            urlMetadata.setDownloadCount(Integer.parseInt(metadataMap.get("dc")));
-            urlMetadata.setFileName(metadataMap.get("fn"));
-            urlMetadata.setExpirationTimestamp(new Date().getTime() / 1000 + jedis.ttl(url));
+        // can make assumption that it exists because of prior checking
+        // add 1 to access count
+        jedis.hincrBy("url:" + url, "ac", 1);
 
-            // add 1 to access count
-            jedis.hincrBy(url, "ac", 1);
+        Map<String, String> urlMeta = jedis.hgetAll("url:" + url);
+        UrlMetadata urlMetadata = new UrlMetadata();
+        urlMetadata.setAccessCount(Integer.parseInt(urlMeta.get("ac")));
+        urlMetadata.setExpirationTimestamp(new Date().getTime() / 1000 + jedis.ttl("url:" + url));
+
+        List<FileGetMetadata> fileGetMetadataList = new ArrayList<>();
+
+        for (String fileNumber : urlMeta.get("files").split(",")) {
+            Map<String, String> fileMeta = jedis.hgetAll("file:" + fileNumber);
+            FileGetMetadata fileGetMetadata = new FileGetMetadata();
+            fileGetMetadata.setDownloadCount(Long.parseLong(fileMeta.get("dc")));
+            fileGetMetadata.setFileName(fileMeta.get("fn"));
+            fileGetMetadata.setHash(fileMeta.get("hash"));
+            fileGetMetadataList.add(fileGetMetadata);
         }
+        urlMetadata.setFiles(fileGetMetadataList);
+
         return urlMetadata;
     }
 
     @Override
-    public boolean storeUrl(String url, int expirationInSeconds, String hash) {
-        return false;
+    public boolean storeUrl(String url, int expirationInSeconds, List<FileSetMetadata> files) {
+        StringBuilder sb = new StringBuilder();
+        for (FileSetMetadata fileSetMetadata : files) {
+            long fileNumber = jedis.incr("file");
+            sb.append(fileNumber).append(",");
+            jedis.hset("file:" + fileNumber, "dc", "0");
+            jedis.hset("file:" + fileNumber, "hash", fileSetMetadata.getHash());
+            jedis.hset("file:" + fileNumber, "fn", fileSetMetadata.getFileName());
+            jedis.expire("file:" + fileNumber, expirationInSeconds);
+
+            // map url + fileName to fileNumber
+            jedis.set("urlFile:" + url + ":" + fileSetMetadata.getFileName(), Long.toString(fileNumber));
+            jedis.expire("urlFile:" + url + ":" + fileSetMetadata.getFileName(), expirationInSeconds);
+        }
+        jedis.hset("url:" + url, "ac", "0");
+        jedis.hset("url:" + url, "files", sb.deleteCharAt(sb.length() - 1).toString());
+        jedis.expire("url:" + url, expirationInSeconds);
+        return true;
+    }
+
+    @Override
+    public boolean fileExists(String url, String fileName) {
+        return jedis.exists("urlFile:" + url + ":" + fileName);
     }
 
     @Override
     public boolean urlExists(String url) {
-        return jedis.hexists(url, "ac");
+        return jedis.hexists("url:" + url, "ac");
     }
 
     @Override
-    public boolean addDownloadCount(String url) {
-        if (jedis.hexists(url, "dc")) {
-            jedis.hincrBy(url, "dc", 1);
+    public boolean addDownloadCount(String url, String fileName) {
+        String fileNumber = jedis.get("urlFile:" + url + ":" + fileName);
+        if (fileNumber != null) { // TODO no real need to check this as it is prevalidated
+            // file exists
+
+            jedis.hincrBy("file:" + fileNumber, "dc", 1);
             return true;
         }
         return false;

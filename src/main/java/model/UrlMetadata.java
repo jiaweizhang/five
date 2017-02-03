@@ -1,23 +1,14 @@
 package model;
 
+import java.util.List;
+
 /**
  * Created by jiaweizhang on 1/29/2017.
  */
 public class UrlMetadata {
-    private boolean exists;
     private int accessCount;
-    private int downloadCount;
     private long expirationTimestamp;
-    private String hash;
-    private String fileName;
-
-    public boolean isExists() {
-        return exists;
-    }
-
-    public void setExists(boolean exists) {
-        this.exists = exists;
-    }
+    private List<FileGetMetadata> files;
 
     public int getAccessCount() {
         return accessCount;
@@ -25,14 +16,6 @@ public class UrlMetadata {
 
     public void setAccessCount(int accessCount) {
         this.accessCount = accessCount;
-    }
-
-    public int getDownloadCount() {
-        return downloadCount;
-    }
-
-    public void setDownloadCount(int downloadCount) {
-        this.downloadCount = downloadCount;
     }
 
     public long getExpirationTimestamp() {
@@ -43,19 +26,11 @@ public class UrlMetadata {
         this.expirationTimestamp = expirationTimestamp;
     }
 
-    public String getHash() {
-        return hash;
+    public List<FileGetMetadata> getFiles() {
+        return files;
     }
 
-    public void setHash(String hash) {
-        this.hash = hash;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
+    public void setFiles(List<FileGetMetadata> files) {
+        this.files = files;
     }
 }

@@ -1,4 +1,7 @@
+import model.FileSetMetadata;
 import model.UrlMetadata;
+
+import java.util.List;
 
 /**
  * Created by jiaweizhang on 1/29/2017.
@@ -18,10 +21,18 @@ public interface KeyValueService {
      *
      * @param url
      * @param expirationInSeconds
-     * @param hash
+     * @param files
      * @return
      */
-    public boolean storeUrl(String url, int expirationInSeconds, String hash);
+    public boolean storeUrl(String url, int expirationInSeconds, List<FileSetMetadata> files);
+
+    /**
+     * Determine whether a file exists for a certain URL
+     *
+     * @param url
+     * @return
+     */
+    public boolean fileExists(String url, String fileName);
 
     /**
      * Determine whether a URL exists
@@ -35,8 +46,9 @@ public interface KeyValueService {
      * Add 1 to the download count
      *
      * @param url
+     * @param fileName
      * @return
      */
-    public boolean addDownloadCount(String url);
+    public boolean addDownloadCount(String url, String fileName);
 
 }

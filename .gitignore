@@ -1,3 +1,6 @@
+# upload folder
+upload/
+
 build/
 .gradle/
 .idea/
