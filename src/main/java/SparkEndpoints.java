@@ -5,6 +5,9 @@
 import com.google.inject.Inject;
 import model.FileSetMetadata;
 import model.UrlMetadata;
+import services.KeyValueService;
+import services.SQLService;
+import utilities.DateUtility;
 
 import javax.servlet.MultipartConfigElement;
 import javax.servlet.http.Part;
@@ -25,11 +28,13 @@ import static spark.Spark.*;
 public class SparkEndpoints {
 
     private KeyValueService keyValueService;
+    private SQLService sqlService;
 
     @Inject
-    public SparkEndpoints(KeyValueService keyValueService) {
+    public SparkEndpoints(KeyValueService keyValueService, SQLService sqlService) {
         port(8080);
         this.keyValueService = keyValueService;
+        this.sqlService = sqlService;
     }
 
     // http://stackoverflow.com/questions/309424/read-convert-an-inputstream-to-a-string
