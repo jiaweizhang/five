@@ -4,6 +4,7 @@ import model.FileSetMetadata;
 import model.UrlMetadata;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Created by jiaweizhang on 1/29/2017.
@@ -52,5 +53,19 @@ public interface KeyValueService {
      * @return
      */
     public boolean addDownloadCount(String url, String fileName);
+
+    /**
+     * Finds an expired URL whose files can be deleted
+     *
+     * @return the URL if found, null if not found
+     */
+    public Set<String> findExpiredUrlsIfExist();
+
+    /**
+     * Delete all references of a URL and allow it to be reused
+     *
+     * @param url
+     */
+    public void deleteUrl(String url);
 
 }

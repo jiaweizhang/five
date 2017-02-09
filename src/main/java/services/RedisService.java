@@ -5,10 +5,7 @@ import model.FileSetMetadata;
 import model.UrlMetadata;
 import redis.clients.jedis.Jedis;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by jiaweizhang on 1/29/2017.
@@ -63,10 +60,16 @@ public class RedisService implements KeyValueService {
             // map url + fileName to fileNumber
             jedis.set("urlFile:" + url + ":" + fileSetMetadata.getFileName(), Long.toString(fileNumber));
             jedis.expire("urlFile:" + url + ":" + fileSetMetadata.getFileName(), expirationInSeconds);
+
+            // store sorted set for file deletion
+            jedis.zadd("ssexpiration", (System.currentTimeMillis() / 1000 + expirationInSeconds), url);
         }
         jedis.hset("url:" + url, "ac", "0");
         jedis.hset("url:" + url, "files", sb.deleteCharAt(sb.length() - 1).toString());
         jedis.expire("url:" + url, expirationInSeconds);
+
+        // add url to existing URLs with no expiration
+        jedis.set("urlExists:" + url, "1");
         return true;
     }
 
@@ -77,7 +80,11 @@ public class RedisService implements KeyValueService {
 
     @Override
     public boolean urlExists(String url) {
-        return jedis.hexists("url:" + url, "ac");
+        if (jedis.hexists("url:" + url, "ac")) {
+            // check deeper
+            return jedis.exists("urlExists:" + url);
+        }
+        return false;
     }
 
     @Override
@@ -90,6 +97,21 @@ public class RedisService implements KeyValueService {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public Set<String> findExpiredUrlsIfExist() {
+        // TODO look into 1-1 long -> double conversion
+        return jedis.zrange("ssexpiration", 0, System.currentTimeMillis() / 1000);
+    }
+
+    @Override
+    public void deleteUrl(String url) {
+        // TODO use a lock to ensure no creation takes place while this deletion is occuring
+        // delete from sorted set
+        jedis.zrem("ssexpiration", url);
+        // delete frome exists
+        jedis.del("urlExists:" + url);
     }
 
 }

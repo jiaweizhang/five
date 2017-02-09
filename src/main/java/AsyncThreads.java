@@ -1,9 +1,8 @@
 import com.google.inject.Inject;
 import services.KeyValueService;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -13,6 +12,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class AsyncThreads {
 
     private final int MAX_SLEEP_TIME_IN_MILLISECONDS = 60000;
+    private final int MIN_SLEEP_TIME_IN_MILLISECONDS = 100;
     // number of consecutive times no files to delete were found
     private int waitTimeCalculationState = 0;
 
@@ -35,9 +35,16 @@ public class AsyncThreads {
         // note that multiple Callable can be executing at a time
         Callable<Integer> cleanFilesTask = () -> {
             try {
-                // perform work
+                // find all expired URLs to process
+                Set<String> newUrlsToDelete = keyValueService.findExpiredUrlsIfExist();
+                for (String url : newUrlsToDelete) {
+                    // actually delete files
 
-                boolean found = false;
+                    // mark as deleted
+                    keyValueService.deleteUrl(url);
+                }
+
+                boolean found = !newUrlsToDelete.isEmpty();
 
                 // acquire write lock that processes currentSleepTimeInSeconds?
                 waitTimeCalculationStateLock.writeLock().lock();
@@ -62,19 +69,32 @@ public class AsyncThreads {
                     // always wait at least 100 milliseconds so more important URL creation and accesses can run
                     // perform exponential scaling depending on uses up until max
                     // TODO ensure no overflow occurs
-                    waitTime = (int) Math.min(Math.pow(1.5, waitTimeCalculationState) * 100, MAX_SLEEP_TIME_IN_MILLISECONDS);
+                    waitTime = (int) Math.min(Math.pow(1.5, waitTimeCalculationState) * MIN_SLEEP_TIME_IN_MILLISECONDS, MAX_SLEEP_TIME_IN_MILLISECONDS);
                 } finally {
                     // release lock
                     waitTimeCalculationStateLock.readLock().unlock();
                 }
 
-                // return time to wait for Callable to execute again
+                // return wait time
                 return waitTime;
             } catch (Exception e) {
                 throw new IllegalStateException("Poll task interrupted", e);
             }
         };
 
+        // schedule first execution to run within min sleep time
+        ScheduledFuture<Integer> waitTimeFuture = executor.schedule(cleanFilesTask, MIN_SLEEP_TIME_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
 
+        while (true) {
+            try {
+                int waitTime = waitTimeFuture.get();
+                // schedule subsequent executions to run within designated wait time
+                waitTimeFuture = executor.schedule(cleanFilesTask, waitTime, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                throw new IllegalStateException("Wait interrupted", e);
+            } catch (ExecutionException e) {
+                throw new IllegalStateException("Wait failed", e);
+            }
+        }
     }
 }
