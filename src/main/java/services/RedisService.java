@@ -17,7 +17,7 @@ public class RedisService implements KeyValueService {
     public RedisService() {
         jedis = new Jedis("localhost", 6379);
         System.out.println("Jedis started");
-        jedis.flushDB();
+        //jedis.flushDB();
     }
 
     @Override
@@ -48,6 +48,9 @@ public class RedisService implements KeyValueService {
 
     @Override
     public boolean storeUrl(String url, int expirationInSeconds, List<FileSetMetadata> files) {
+        // add url to existing URLs with no expiration
+        jedis.set("urlExists:" + url, "1");
+
         StringBuilder sb = new StringBuilder();
         for (FileSetMetadata fileSetMetadata : files) {
             long fileNumber = jedis.incr("file");
@@ -62,14 +65,12 @@ public class RedisService implements KeyValueService {
             jedis.expire("urlFile:" + url + ":" + fileSetMetadata.getFileName(), expirationInSeconds);
 
             // store sorted set for file deletion
-            jedis.zadd("ssexpiration", (System.currentTimeMillis() / 1000 + expirationInSeconds), url);
+            jedis.zadd("ssexpiration", System.currentTimeMillis() / 1000 + expirationInSeconds, url);
         }
         jedis.hset("url:" + url, "ac", "0");
         jedis.hset("url:" + url, "files", sb.deleteCharAt(sb.length() - 1).toString());
         jedis.expire("url:" + url, expirationInSeconds);
 
-        // add url to existing URLs with no expiration
-        jedis.set("urlExists:" + url, "1");
         return true;
     }
 
@@ -79,12 +80,14 @@ public class RedisService implements KeyValueService {
     }
 
     @Override
-    public boolean urlExists(String url) {
-        if (jedis.hexists("url:" + url, "ac")) {
-            // check deeper
-            return jedis.exists("urlExists:" + url);
-        }
-        return false;
+    public boolean urlHasMetadata(String url) {
+        return jedis.hexists("url:" + url, "ac");
+    }
+
+    @Override
+    public boolean urlCannotBeCreated(String url) {
+        // check deeper
+        return jedis.exists("urlExists:" + url);
     }
 
     @Override
@@ -102,7 +105,7 @@ public class RedisService implements KeyValueService {
     @Override
     public Set<String> findExpiredUrlsIfExist() {
         // TODO look into 1-1 long -> double conversion
-        return jedis.zrange("ssexpiration", 0, System.currentTimeMillis() / 1000);
+        return jedis.zrangeByScore("ssexpiration", 0, System.currentTimeMillis() / 1000);
     }
 
     @Override

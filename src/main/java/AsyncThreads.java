@@ -2,6 +2,7 @@ import com.google.inject.Inject;
 import services.KeyValueService;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -13,7 +14,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class AsyncThreads {
 
     private final int MAX_SLEEP_TIME_IN_MILLISECONDS = 60000;
-    private final int MIN_SLEEP_TIME_IN_MILLISECONDS = 100;
+    private final int MIN_SLEEP_TIME_IN_MILLISECONDS = 1000;
     // number of consecutive times no files to delete were found
     private int waitTimeCalculationState = 0;
 
@@ -36,11 +37,14 @@ public class AsyncThreads {
         // note that multiple Callable can be executing at a time
         Callable<Integer> cleanFilesTask = () -> {
             try {
+                System.out.println("Running clean file task");
                 // find all expired URLs to process
                 Set<String> newUrlsToDelete = keyValueService.findExpiredUrlsIfExist();
                 for (String url : newUrlsToDelete) {
                     // actually delete files
+                    System.out.println("Deleting URL: " + url);
                     File folderToDelete = new File("upload/" + url);
+                    Arrays.asList(folderToDelete.listFiles()).forEach(File::delete);
                     folderToDelete.delete();
                     // mark as deleted
                     keyValueService.deleteUrl(url);

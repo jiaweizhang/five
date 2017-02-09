@@ -59,7 +59,7 @@ public class SparkEndpoints {
         });
 
         get("/:url", (request, response) -> {
-            if (keyValueService.urlExists(request.params(":url"))) {
+            if (keyValueService.urlHasMetadata(request.params(":url"))) {
                 UrlMetadata urlMetadata = keyValueService.accessUrl(request.params(":url"));
                 return "<p>Access count: " + urlMetadata.getAccessCount() + "</p>"
                         + "<p>Expiration: " + DateUtility.getTimestampString(urlMetadata.getExpirationTimestamp()) + " EST</p>"
@@ -69,8 +69,11 @@ public class SparkEndpoints {
                                 + request.params(":url") + "/" + f.getFileName() + "' download>" + f.getFileName()
                                 + "</a></p>")
                         .collect(Collectors.joining(""));
+            } else if (keyValueService.urlCannotBeCreated(request.params(":url"))) {
+                return "<p>URL has recently expired. Please attempt creation at a later time.</p>";
             }
-            return "<form method='post' enctype='multipart/form-data'>"
+            return "<p>Current time: " + DateUtility.getTimestampString(System.currentTimeMillis() / 1000) + "</p>"
+                    + "<form method='post' enctype='multipart/form-data'>"
                     + "<input type='file' name='file[]' multiple>"
                     + "<input type='number' name='expiration'>"
                     + "<button>Upload file</button>"
@@ -98,8 +101,8 @@ public class SparkEndpoints {
                 return "Invalid expiration";
             }
 
-            if (keyValueService.urlExists(request.params(":url"))) {
-                return "Url already exists";
+            if (keyValueService.urlCannotBeCreated(request.params(":url"))) {
+                return "Url cannot currently be created";
             }
 
             List<FileSetMetadata> fileSetMetadataList = new ArrayList<>();
@@ -147,7 +150,7 @@ public class SparkEndpoints {
                 }
             }
 
-            // cleanup
+            // TODO cleanup necessary?
             multipartConfigElement = null;
 
             // store

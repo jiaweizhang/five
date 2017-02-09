@@ -38,12 +38,20 @@ public interface KeyValueService {
     public boolean fileExists(String url, String fileName);
 
     /**
-     * Determine whether a URL exists
+     * Determine whether a URL currently has metadata associated with it
      *
      * @param url
      * @return
      */
-    public boolean urlExists(String url);
+    public boolean urlHasMetadata(String url);
+
+    /**
+     * Determine whether a URL cannot be created because it has recently expired and associated files may not have been removed
+     *
+     * @param url
+     * @return
+     */
+    public boolean urlCannotBeCreated(String url);
 
     /**
      * Add 1 to the download count
