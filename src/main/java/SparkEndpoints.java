@@ -78,6 +78,7 @@ public class SparkEndpoints {
         });
 
         post("/:url", "multipart/form-data", (request, response) -> {
+            // TODO perform URL validation
 
             String location = "upload";          // the directory location where files will be stored
             long maxFileSize = 100000000;       // the maximum size allowed for uploaded files

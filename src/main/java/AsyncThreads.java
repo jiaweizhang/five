@@ -1,6 +1,7 @@
 import com.google.inject.Inject;
 import services.KeyValueService;
 
+import java.io.File;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -39,7 +40,8 @@ public class AsyncThreads {
                 Set<String> newUrlsToDelete = keyValueService.findExpiredUrlsIfExist();
                 for (String url : newUrlsToDelete) {
                     // actually delete files
-
+                    File folderToDelete = new File("upload/" + url);
+                    folderToDelete.delete();
                     // mark as deleted
                     keyValueService.deleteUrl(url);
                 }
