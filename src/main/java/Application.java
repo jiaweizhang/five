@@ -1,11 +1,11 @@
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import services.KeyValueService;
-import services.SQLService;
 
 import java.io.File;
 
 import static spark.Spark.externalStaticFileLocation;
+import static spark.Spark.port;
 
 /**
  * Created by jiaweizhang on 1/28/2017.
@@ -15,7 +15,6 @@ public class Application {
 
         Injector injector = Guice.createInjector(new ServiceModule());
         KeyValueService keyValueService = injector.getInstance(KeyValueService.class);
-        SQLService sqlService = injector.getInstance(SQLService.class);
 
         String staticFileLocation = System.getProperty("user.dir") + "/src/main/webapp";
         externalStaticFileLocation(staticFileLocation);
@@ -23,7 +22,9 @@ public class Application {
         File uploadDir = new File("upload");
         uploadDir.mkdir(); // create the upload directory if it doesn't exist
 
-        new SparkEndpoints(keyValueService, sqlService).createEndpoints();
+        port(8080);
+
+        new SparkEndpoints(keyValueService).createEndpoints();
         new AsyncThreads(keyValueService).start();
     }
 }
